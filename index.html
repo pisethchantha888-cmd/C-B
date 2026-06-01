@@ -457,7 +457,7 @@
                         <form id="resignation-form" onsubmit="handleResignationSubmit(event)">
                             <input type="hidden" id="res-edit-id">
                             <div class="form-grid">
-                                <div class="form-group"><label>Staff ID</label><input type="text" id="res-id" class="form-control" required></div>
+                                <div class="form-group"><label>Staff ID <button type="button" class="btn btn-primary btn-sm" id="res-lookup-btn" onclick="doStaffLookup()" style="padding:2px 10px;font-size:0.75rem;border-radius:8px;margin-left:8px;"><i class="fa-solid fa-magnifying-glass"></i> Lookup</button></label><div style="display:flex;gap:6px;"><input type="text" id="res-id" class="form-control" style="flex:1;" required placeholder="Type Staff ID then Tab/Enter or click Lookup"><span id="res-lookup-spinner" style="display:none;align-self:center;"><i class="fa-solid fa-spinner fa-spin" style="color:var(--accent-primary);"></i></span></div></div>
                                 <div class="form-group"><label>Staff Name</label><input type="text" id="res-name" class="form-control" required></div>
                                 <div class="form-group"><label>Position</label><input type="text" id="res-position" class="form-control" required></div>
                                 <div class="form-group"><label>Nationality</label><input type="text" id="res-nationality" class="form-control" required placeholder="e.g., Cambodian"></div>
@@ -816,6 +816,7 @@
         }
 
         const MASTER_LIST_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTO68GX9WFErMXR7GxUbaAybv0Vu-Cuia482ACsE8LDVOy_g_fAmvuEG7Y6WTSAII_PG521XZoBgBM_/pub?output=csv&gid=1500996284';
+        const EMPLOYEES_JSON = 'employees.json';
         let masterEmployeeData = [];
         let masterListLoaded = false;
 
@@ -839,20 +840,32 @@
         function formatMasterDate(dateStr) {
             if (!dateStr) return '';
             const m = { 'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12' };
-            const match = dateStr.match(/(\d+)-([A-Za-z]{3})-(\d{4})/);
+            const longMonths = { 'January':'01','February':'02','March':'03','April':'04','May':'05','June':'06','July':'07','August':'08','September':'09','October':'10','November':'11','December':'12' };
+            let match = dateStr.match(/(\d+)-([A-Za-z]{3})-(\d{4})/);
             if (match) return `${match[3]}-${m[match[2]]||'01'}-${match[1].padStart(2,'0')}`;
+            match = dateStr.match(/([A-Za-z]+)\s+(\d+),\s*(\d{4})/);
+            if (match) return `${match[3]}-${longMonths[match[1]]||'01'}-${match[2].padStart(2,'0')}`;
             return dateStr;
         }
 
         async function fetchMasterList() {
             if (masterListLoaded) return;
             try {
+                const resp = await fetch(EMPLOYEES_JSON);
+                if (resp.ok) {
+                    masterEmployeeData = await resp.json();
+                    masterListLoaded = true;
+                    console.log(`Loaded ${masterEmployeeData.length} employees from employees.json`);
+                    return;
+                }
+            } catch (e) { console.warn('Local JSON not available, trying Google Sheets...', e); }
+            try {
                 const resp = await fetch(MASTER_LIST_CSV);
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                 const text = await resp.text();
                 parseMasterCSV(text);
             } catch (e) {
-                console.warn('Direct CSV fetch failed, trying CORS proxy...', e);
+                console.warn('Direct CSV fetch failed, trying proxy...', e);
                 try {
                     const proxy = 'https://api.allorigins.win/raw?url=';
                     const resp = await fetch(proxy + encodeURIComponent(MASTER_LIST_CSV));
@@ -860,8 +873,8 @@
                     const text = await resp.text();
                     parseMasterCSV(text);
                 } catch (e2) {
-                    console.error('Master List fetch failed entirely:', e2);
-                    showNotification('Could not load Master List from Google Sheets. Auto-fill unavailable.', 'error');
+                    console.error('All Master List fetches failed:', e2);
+                    showNotification('Could not load Master List. Auto-fill unavailable.', 'error');
                 }
             }
         }
@@ -879,7 +892,7 @@
                     masterEmployeeData.push({
                         staffId: staffId,
                         name: cols[3] || '',
-                        nationality: cols[5] || '',
+                        nationality: cols[6] || '',
                         status: cols[9] || '',
                         startDate: cols[11] || '',
                         campus: cols[13] || '',
@@ -890,6 +903,20 @@
                 }
             }
             masterListLoaded = true;
+            console.log(`Parsed ${masterEmployeeData.length} employees from CSV`);
+        }
+
+        function doStaffLookup() {
+            const input = document.getElementById('res-id');
+            const spinner = document.getElementById('res-lookup-spinner');
+            if (!input.value.trim()) { showNotification('Please enter a Staff ID first.', 'error'); input.focus(); return; }
+            if (!masterListLoaded) { showNotification('Master List still loading...', 'error'); return; }
+            spinner.style.display = 'flex';
+            setTimeout(() => {
+                const found = autoFillFromMaster(input.value.trim());
+                spinner.style.display = 'none';
+                if (!found) input.focus();
+            }, 100);
         }
 
         function autoFillFromMaster(staffId) {
@@ -909,7 +936,7 @@
             if (mappedStatus && [...statusSel.options].some(o => o.value === mappedStatus)) statusSel.value = mappedStatus;
             if (emp.startDate) document.getElementById('res-start').value = formatMasterDate(emp.startDate);
             if (emp.lastWorkingDay) document.getElementById('res-end').value = formatMasterDate(emp.lastWorkingDay);
-            showNotification(`Auto-filled from Master List: ${emp.name}`, 'success');
+            showNotification(`Auto-filled: ${emp.name}`, 'success');
             return true;
         }
 
@@ -926,16 +953,14 @@
                 updateAllViews();
                 fetchMasterList();
                 setTimeout(() => {
-                    const staffIdInput = document.getElementById('res-id');
-                    if (staffIdInput) {
-                        staffIdInput.addEventListener('blur', function() {
-                            if (this.value.trim()) autoFillFromMaster(this.value.trim());
-                        });
-                        staffIdInput.addEventListener('keydown', function(e) {
-                            if (e.key === 'Enter') { e.preventDefault(); if (this.value.trim()) autoFillFromMaster(this.value.trim()); }
+                    const idInput = document.getElementById('res-id');
+                    if (idInput) {
+                        idInput.addEventListener('blur', function() { if (this.value.trim()) doStaffLookup(); });
+                        idInput.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter') { e.preventDefault(); doStaffLookup(); }
                         });
                     }
-                }, 500);
+                }, 300);
             } else {
                 document.getElementById('login-container').style.display = 'flex';
                 document.getElementById('app-container').style.display = 'none';
