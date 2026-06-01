@@ -498,7 +498,7 @@
                                     <label>Attach Document (PDF)</label>
                                     <div class="file-upload-wrapper">
                                         <div class="file-upload-btn" id="res-file-label"><i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload PDF Document</div>
-                                        <input type="file" id="res-file" accept=".pdf" onchange="updateFileLabel(this, 'res-file-label')">
+                                        <input type="file" id="res-file" accept=".pdf" multiple onchange="updateFileLabel(this, 'res-file-label')">
                                     </div>
                                 </div>
                             </div>
@@ -547,7 +547,7 @@
                                 <div class="form-group"><label>Total Contribution (USD)</label><input type="number" step="0.01" id="nssf-amount" class="form-control" required></div>
                                 <div class="form-group full-width">
                                     <label>Upload NSSF File (PDF)</label>
-                                    <div class="file-upload-wrapper"><div class="file-upload-btn" id="nssf-file-label"><i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload NSSF PDF</div><input type="file" id="nssf-file" accept=".pdf" onchange="updateFileLabel(this, 'nssf-file-label')"></div>
+                                    <div class="file-upload-wrapper"><div class="file-upload-btn" id="nssf-file-label"><i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload NSSF PDF</div><input type="file" id="nssf-file" accept=".pdf" multiple onchange="updateFileLabel(this, 'nssf-file-label')"></div>
                                 </div>
                             </div>
                             <div style="display: flex; gap: 10px;">
@@ -599,7 +599,7 @@
                                 <div class="form-group"><label>Date</label><input type="date" id="don-date" class="form-control" required></div>
                                 <div class="form-group full-width">
                                     <label>Attach Proof (PDF)</label>
-                                    <div class="file-upload-wrapper"><div class="file-upload-btn" id="don-file-label"><i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload PDF Proof</div><input type="file" id="don-file" accept=".pdf" onchange="updateFileLabel(this, 'don-file-label')"></div>
+                                    <div class="file-upload-wrapper"><div class="file-upload-btn" id="don-file-label"><i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload PDF Proof</div><input type="file" id="don-file" accept=".pdf" multiple onchange="updateFileLabel(this, 'don-file-label')"></div>
                                 </div>
                             </div>
                             <div style="display: flex; gap: 10px;">
@@ -709,6 +709,7 @@
         <div class="modal-content">
             <span class="close-modal" onclick="closePdfModal()"><i class="fa-solid fa-circle-xmark"></i></span>
             <h3 id="pdfViewerTitle" style="color: var(--text-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">Document Viewer</h3>
+            <div id="pdf-file-tabs" style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;"></div>
             <embed id="pdfEmbed" src="" type="application/pdf">
         </div>
     </div>
@@ -785,11 +786,11 @@
         function seedMockData() {
             const now = Date.now();
             db.resignations = [
-                { id: "r1", staffId: "2102", name: "NITA", nationality: "Cambodian", campus: "BCH", department: "Academic", position: "Teacher", status: "Full-time", reason: "End of Contract", start: "2024-05-01", end: "2026-04-30", clearance: "Yes", filename: "clearance_2102.pdf", timestamp: now - 86400000 },
-                { id: "r2", staffId: "1984", name: "SOKHA T.", nationality: "Cambodian", campus: "CEN", department: "Operations", position: "Admin", status: "Full-time", reason: "Resign", start: "2022-01-15", end: "2026-05-15", clearance: "No", filename: "resignation_1984.pdf", timestamp: now - 172800000 }
+                { id: "r1", staffId: "2102", name: "NITA", nationality: "Cambodian", campus: "BCH", department: "Academic", position: "Teacher", status: "Full-time", reason: "End of Contract", start: "2024-05-01", end: "2026-04-30", clearance: "Yes", filenames: ["clearance_2102.pdf"], fileCount: 1, timestamp: now - 86400000 },
+                { id: "r2", staffId: "1984", name: "SOKHA T.", nationality: "Cambodian", campus: "CEN", department: "Operations", position: "Admin", status: "Full-time", reason: "Resign", start: "2022-01-15", end: "2026-05-15", clearance: "No", filenames: ["resignation_1984.pdf"], fileCount: 1, timestamp: now - 172800000 }
             ];
-            db.nssf = [{ id: "n1", month: "January", year: "2026", staff: "145", amount: 2150.50, filename: "NSSF_Jan_2026.pdf", timestamp: now - 5000000000 }];
-            db.donations = [{ id: "d1", staffId: "1105", name: "CHANTY", campus: "CEN", status: "Full-time", type: "Wedding", amount: 50.00, date: "2026-02-14", filename: "wedding_1105.pdf", timestamp: now - 3000000000 }];
+            db.nssf = [{ id: "n1", month: "January", year: "2026", staff: "145", amount: 2150.50, filenames: ["NSSF_Jan_2026.pdf"], fileCount: 1, timestamp: now - 5000000000 }];
+            db.donations = [{ id: "d1", staffId: "1105", name: "CHANTY", campus: "CEN", status: "Full-time", type: "Wedding", amount: 50.00, date: "2026-02-14", filenames: ["wedding_1105.pdf"], fileCount: 1, timestamp: now - 3000000000 }];
             db.telegram = { token: "8762629026:AAGWtrMC9LmdGyr41CQ07bLM6jbZZRJZ020", chatId: "-1003596479947", fileName: "CB_Report" };
             saveDb(false);
         }
@@ -945,6 +946,7 @@
 
         function checkAuth() {
             initApp();
+            migrateFileData();
             const storedUser = sessionStorage.getItem('cb_logged_user');
             if (storedUser) {
                 currentUser = JSON.parse(storedUser);
@@ -1017,8 +1019,12 @@
 
         function updateFileLabel(input, labelId) {
             const label = document.getElementById(labelId);
-            if (input.files && input.files[0]) label.innerHTML = `<i class="fa-solid fa-check"></i> ${input.files[0].name}`;
-            else label.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload PDF`;
+            if (input.files && input.files.length > 0) {
+                const names = Array.from(input.files).map(f => f.name).join(', ');
+                label.innerHTML = `<i class="fa-solid fa-check"></i> ${input.files.length} file(s): ${names}`;
+            } else {
+                label.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload PDF`;
+            }
         }
 
         function showNotification(message, type = 'success') {
@@ -1032,9 +1038,71 @@
             setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
         }
 
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('CB_Files', 1);
+                request.onupgradeneeded = e => {
+                    const d = e.target.result;
+                    if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', { keyPath: 'recordId' });
+                };
+                request.onsuccess = e => resolve(e.target.result);
+                request.onerror = e => reject(e.target.error);
+            });
+        }
+
+        async function saveRecordFiles(recordId, files) {
+            if (!files || files.length === 0) return;
+            const db = await openDB();
+            const tx = db.transaction('files', 'readwrite');
+            const store = tx.objectStore('files');
+            const fileEntries = files.map(f => ({ name: f.name, data: f }));
+            await store.put({ recordId, files: fileEntries });
+            return new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve();
+                tx.onerror = e => reject(e.target.error);
+            });
+        }
+
+        async function loadRecordFiles(recordId) {
+            const db = await openDB();
+            const tx = db.transaction('files', 'readonly');
+            const store = tx.objectStore('files');
+            return new Promise((resolve, reject) => {
+                const request = store.get(recordId);
+                request.onsuccess = () => resolve(request.result?.files || []);
+                request.onerror = e => reject(e.target.error);
+            });
+        }
+
+        async function deleteRecordFiles(recordId) {
+            const db = await openDB();
+            const tx = db.transaction('files', 'readwrite');
+            const store = tx.objectStore('files');
+            store.delete(recordId);
+            return new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve();
+                tx.onerror = e => reject(e.target.error);
+            });
+        }
+
+        async function processFiles(formPrefix, editId) {
+            const fileInput = document.getElementById(`${formPrefix}-file`);
+            const newFiles = fileInput.files && fileInput.files.length > 0 ? Array.from(fileInput.files) : [];
+            if (newFiles.length > 0) {
+                const recordId = editId || Date.now().toString();
+                await saveRecordFiles(recordId, newFiles);
+                return { filenames: newFiles.map(f => f.name), fileCount: newFiles.length, recordId };
+            }
+            if (editId) {
+                const existing = await loadRecordFiles(editId);
+                if (existing.length > 0) return { filenames: existing.map(f => f.name), fileCount: existing.length, recordId: editId };
+            }
+            return { filenames: [], fileCount: 0, recordId: null };
+        }
+
         function getBase64(file) {
             return new Promise((resolve, reject) => {
-                if(!file) resolve(null);
+                if (!file) resolve(null);
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = () => resolve(reader.result);
@@ -1042,15 +1110,90 @@
             });
         }
 
-        function openPdfViewer(collection, id) {
-            const record = db[collection].find(r => r.id === id);
-            if(record && record.fileData) {
-                document.getElementById('pdfViewerTitle').innerText = `Document Viewer - ${record.filename}`;
-                document.getElementById('pdfEmbed').src = record.fileData;
-                document.getElementById('pdfModal').style.display = 'flex';
-            } else { showNotification('No PDF file attached to this record.', 'error'); }
+        async function migrateFileData() {
+            let changed = false;
+            for (const coll of ['resignations', 'nssf', 'donations']) {
+                for (const record of db[coll]) {
+                    if (record.fileData) {
+                        try {
+                            const resp = await fetch(record.fileData);
+                            const blob = await resp.blob();
+                            await saveRecordFiles(record.id, [new File([blob], record.filename || 'document.pdf', { type: 'application/pdf' })]);
+                            record.filenames = [record.filename || 'document.pdf'];
+                            record.fileCount = 1;
+                            delete record.fileData;
+                            changed = true;
+                        } catch (e) {
+                            console.warn('Migration failed for record', record.id, e);
+                        }
+                    } else if (record.fileData === undefined && record.filename && record.filename !== 'No file' && !record.filenames) {
+                        record.filenames = [record.filename];
+                        record.fileCount = 1;
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) saveDb(false);
         }
-        function closePdfModal() { document.getElementById('pdfModal').style.display = 'none'; document.getElementById('pdfEmbed').src = ''; }
+
+        let _pdfFileIndex = 0;
+        let _pdfFileCache = [];
+        let _pdfObjectUrl = null;
+
+        async function openPdfViewer(collection, id) {
+            const record = db[collection].find(r => r.id === id);
+            if (!record) { showNotification('Record not found.', 'error'); return; }
+            let files = await loadRecordFiles(id);
+            if (files.length === 0 && record.fileData) {
+                try {
+                    const resp = await fetch(record.fileData);
+                    const blob = await resp.blob();
+                    files = [{ name: record.filename || 'document.pdf', data: blob }];
+                } catch (e) { files = []; }
+            }
+            if (files.length === 0) { showNotification('No PDF file attached to this record.', 'error'); return; }
+            _pdfFileCache = files;
+            _pdfFileIndex = 0;
+            const tabsContainer = document.getElementById('pdf-file-tabs');
+            tabsContainer.innerHTML = '';
+            if (files.length > 1) {
+                files.forEach((f, i) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-sm ' + (i === 0 ? 'btn-primary' : 'btn-secondary');
+                    btn.textContent = f.name;
+                    btn.onclick = () => showPdfFile(i);
+                    tabsContainer.appendChild(btn);
+                });
+            }
+            document.getElementById('pdfViewerTitle').innerText = `Document Viewer - ${files[0].name}`;
+            const blob = files[0].data instanceof Blob ? files[0].data : new Blob([files[0].data], { type: 'application/pdf' });
+            if (_pdfObjectUrl) URL.revokeObjectURL(_pdfObjectUrl);
+            _pdfObjectUrl = URL.createObjectURL(blob);
+            document.getElementById('pdfEmbed').src = _pdfObjectUrl;
+            document.getElementById('pdfModal').style.display = 'flex';
+        }
+
+        function showPdfFile(index) {
+            const files = _pdfFileCache;
+            if (!files[index]) return;
+            _pdfFileIndex = index;
+            document.getElementById('pdfViewerTitle').innerText = `Document Viewer - ${files[index].name}`;
+            const blob = files[index].data instanceof Blob ? files[index].data : new Blob([files[index].data], { type: 'application/pdf' });
+            if (_pdfObjectUrl) URL.revokeObjectURL(_pdfObjectUrl);
+            _pdfObjectUrl = URL.createObjectURL(blob);
+            document.getElementById('pdfEmbed').src = _pdfObjectUrl;
+            document.querySelectorAll('#pdf-file-tabs .btn').forEach((btn, i) => {
+                btn.className = 'btn btn-sm ' + (i === index ? 'btn-primary' : 'btn-secondary');
+            });
+        }
+
+        function closePdfModal() {
+            document.getElementById('pdfModal').style.display = 'none';
+            document.getElementById('pdfEmbed').src = '';
+            document.getElementById('pdf-file-tabs').innerHTML = '';
+            if (_pdfObjectUrl) { URL.revokeObjectURL(_pdfObjectUrl); _pdfObjectUrl = null; }
+            _pdfFileCache = [];
+        }
 
         function renderDashboard() {
             const resCount = db.resignations.length;
@@ -1119,11 +1262,9 @@
         async function handleResignationSubmit(e) {
             e.preventDefault();
             const editId = document.getElementById('res-edit-id').value;
-            const fileInput = document.getElementById('res-file');
-            let fileData = null, filename = 'No file';
-            if (fileInput.files.length > 0) { fileData = await getBase64(fileInput.files[0]); filename = fileInput.files[0].name; } 
-            else if (editId) { const existing = db.resignations.find(r => r.id === editId); fileData = existing.fileData; filename = existing.filename; }
-            const record = { id: editId || Date.now().toString(), staffId: document.getElementById('res-id').value, name: document.getElementById('res-name').value, nationality: document.getElementById('res-nationality').value, campus: document.getElementById('res-campus').value, department: document.getElementById('res-department').value, position: document.getElementById('res-position').value, status: document.getElementById('res-status').value, reason: document.getElementById('res-reason').value, start: document.getElementById('res-start').value, end: document.getElementById('res-end').value, clearance: document.getElementById('res-clearance').value, filename: filename, fileData: fileData, timestamp: Date.now() };
+            const fResult = await processFiles('res', editId);
+            const recordId = editId || fResult.recordId || Date.now().toString();
+            const record = { id: recordId, staffId: document.getElementById('res-id').value, name: document.getElementById('res-name').value, nationality: document.getElementById('res-nationality').value, campus: document.getElementById('res-campus').value, department: document.getElementById('res-department').value, position: document.getElementById('res-position').value, status: document.getElementById('res-status').value, reason: document.getElementById('res-reason').value, start: document.getElementById('res-start').value, end: document.getElementById('res-end').value, clearance: document.getElementById('res-clearance').value, filenames: fResult.filenames, fileCount: fResult.fileCount, timestamp: Date.now() };
             if (editId) { const idx = db.resignations.findIndex(r => r.id === editId); db.resignations[idx] = record; showNotification('Record updated.'); } 
             else { db.resignations.push(record); showNotification('Record added.'); }
             saveDb(); document.getElementById('resignation-form').reset(); document.getElementById('res-edit-id').value = ''; document.getElementById('res-file-label').innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload PDF'; document.getElementById('res-campus').value = ''; document.getElementById('res-form-title').innerText = 'Add New Record'; document.getElementById('res-submit-btn').innerHTML = '<i class="fa-solid fa-save"></i> Save Record'; document.getElementById('res-cancel-btn').style.display = 'none';
@@ -1137,18 +1278,23 @@
             if(f.dept) data = data.filter(r => r.department === f.dept);
             if(f.reason) data = data.filter(r => r.reason === f.reason);
             if(f.clearance) data = data.filter(r => r.clearance === f.clearance);
-            document.getElementById('resignation-table-body').innerHTML = data.map(r => `<tr><td><strong>${r.staffId}</strong></td><td>${r.name}</td><td>${r.position}</td><td><span class="badge badge-cyan">${r.campus||'-'}</span></td><td>${r.department||'-'}</td><td>${r.nationality||'-'}</td><td>${r.status||'-'}</td><td>${r.reason||'-'}</td><td>${r.end}</td><td><span class="badge ${r.clearance==='Yes'?'badge-success':'badge-warning'}">${r.clearance==='Yes'?'Cleared':'Pending'}</span></td><td>${r.fileData?`<i class="fa-solid fa-file-pdf" style="color:var(--danger);font-size:1.2rem;"></i>`:'-'}</td><td><div class="action-btns"><button class="btn btn-primary btn-sm" onclick="editRecord('resignations','${r.id}','res')"><i class="fa-solid fa-pen-to-square"></i></button><button class="btn btn-gray btn-sm" onclick="openPdfViewer('resignations','${r.id}')"><i class="fa-solid fa-eye"></i></button><button class="btn btn-danger btn-sm" onclick="deleteRecord('resignations','${r.id}')"><i class="fa-solid fa-trash"></i></button></div></td></tr>`).join('')||'<tr><td colspan="12" style="text-align:center;padding:20px;">No records found.</td></tr>';
+            document.getElementById('resignation-table-body').innerHTML = data.map(r => `<tr><td><strong>${r.staffId}</strong></td><td>${r.name}</td><td>${r.position}</td><td><span class="badge badge-cyan">${r.campus||'-'}</span></td><td>${r.department||'-'}</td><td>${r.nationality||'-'}</td><td>${r.status||'-'}</td><td>${r.reason||'-'}</td><td>${r.end}</td><td><span class="badge ${r.clearance==='Yes'?'badge-success':'badge-warning'}">${r.clearance==='Yes'?'Cleared':'Pending'}</span></td><td>${r.fileCount ? `<i class="fa-solid fa-file-pdf" style="color:var(--danger);font-size:1.2rem;"></i> ${r.fileCount} file(s)` : '-'}</td><td><div class="action-btns"><button class="btn btn-primary btn-sm" onclick="editRecord('resignations','${r.id}','res')"><i class="fa-solid fa-pen-to-square"></i></button><button class="btn btn-gray btn-sm" onclick="openPdfViewer('resignations','${r.id}')"><i class="fa-solid fa-eye"></i></button><button class="btn btn-danger btn-sm" onclick="deleteRecord('resignations','${r.id}')"><i class="fa-solid fa-trash"></i></button></div></td></tr>`).join('')||'<tr><td colspan="12" style="text-align:center;padding:20px;">No records found.</td></tr>';
         }
 
         async function handleNssfSubmit(e) {
             e.preventDefault();
             const editId = document.getElementById('nssf-edit-id').value;
-            const fileInput = document.getElementById('nssf-file');
-            let fileData = null, filename = 'No file';
-            if (fileInput.files.length > 0) { fileData = await getBase64(fileInput.files[0]); filename = fileInput.files[0].name; } 
-            else if (editId) { const existing = db.nssf.find(r => r.id === editId); fileData = existing.fileData; filename = existing.filename; } 
-            else { showNotification('Please attach an NSSF PDF file.','error'); return; }
-            const record = { id: editId || Date.now().toString(), month: document.getElementById('nssf-month').value, year: document.getElementById('nssf-year').value, staff: document.getElementById('nssf-staff').value, amount: parseFloat(document.getElementById('nssf-amount').value), filename: filename, fileData: fileData, timestamp: Date.now() };
+            const fResult = await processFiles('nssf', editId);
+            if (!editId && fResult.fileCount === 0) { showNotification('Please attach at least one NSSF PDF file.', 'error'); return; }
+            const recordId = editId || fResult.recordId || Date.now().toString();
+            let legacyFilenames = [];
+            if (editId && fResult.fileCount === 0) {
+                const existing = db.nssf.find(r => r.id === editId);
+                if (existing && existing.filenames) legacyFilenames = existing.filenames;
+                else if (existing && existing.filename && existing.filename !== 'No file') legacyFilenames = [existing.filename];
+            }
+            const finalFilenames = fResult.fileCount > 0 ? fResult.filenames : legacyFilenames;
+            const record = { id: recordId, month: document.getElementById('nssf-month').value, year: document.getElementById('nssf-year').value, staff: document.getElementById('nssf-staff').value, amount: parseFloat(document.getElementById('nssf-amount').value), filenames: finalFilenames, fileCount: finalFilenames.length, timestamp: Date.now() };
             if (editId) { const idx = db.nssf.findIndex(r => r.id === editId); db.nssf[idx] = record; showNotification('Record updated.'); } 
             else { db.nssf.push(record); showNotification('Record uploaded.'); }
             saveDb(); cancelEdit('nssf');
@@ -1159,17 +1305,15 @@
             const f = currentFilters.nssf;
             if(f.search) data = data.filter(r => r.year.toString().includes(f.search));
             if(f.month) data = data.filter(r => r.month === f.month);
-            document.getElementById('nssf-table-body').innerHTML = data.map(n => `<tr><td><strong>${n.month} ${n.year}</strong></td><td>${n.staff}</td><td>$${parseFloat(n.amount).toFixed(2)}</td><td>${n.fileData?`<i class="fa-solid fa-file-pdf" style="color:var(--danger);font-size:1.2rem;"></i> ${n.filename}`:'-'}</td><td><div class="action-btns"><button class="btn btn-primary btn-sm" onclick="editRecord('nssf','${n.id}','nssf')"><i class="fa-solid fa-pen-to-square"></i></button><button class="btn btn-gray btn-sm" onclick="openPdfViewer('nssf','${n.id}')"><i class="fa-solid fa-eye"></i></button><button class="btn btn-danger btn-sm" onclick="deleteRecord('nssf','${n.id}')"><i class="fa-solid fa-trash"></i></button></div></td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:20px;">No records found.</td></tr>';
+            document.getElementById('nssf-table-body').innerHTML = data.map(n => `<tr><td><strong>${n.month} ${n.year}</strong></td><td>${n.staff}</td><td>$${parseFloat(n.amount).toFixed(2)}</td><td>${n.fileCount ? `<i class="fa-solid fa-file-pdf" style="color:var(--danger);font-size:1.2rem;"></i> ${n.fileCount} file(s)` : '-'}</td><td><div class="action-btns"><button class="btn btn-primary btn-sm" onclick="editRecord('nssf','${n.id}','nssf')"><i class="fa-solid fa-pen-to-square"></i></button><button class="btn btn-gray btn-sm" onclick="openPdfViewer('nssf','${n.id}')"><i class="fa-solid fa-eye"></i></button><button class="btn btn-danger btn-sm" onclick="deleteRecord('nssf','${n.id}')"><i class="fa-solid fa-trash"></i></button></div></td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:20px;">No records found.</td></tr>';
         }
 
         async function handleDonationSubmit(e) {
             e.preventDefault();
             const editId = document.getElementById('don-edit-id').value;
-            const fileInput = document.getElementById('don-file');
-            let fileData = null, filename = 'No file';
-            if (fileInput.files.length > 0) { fileData = await getBase64(fileInput.files[0]); filename = fileInput.files[0].name; } 
-            else if (editId) { const existing = db.donations.find(r => r.id === editId); fileData = existing.fileData; filename = existing.filename; }
-            const record = { id: editId || Date.now().toString(), staffId: document.getElementById('don-id').value, name: document.getElementById('don-name').value, campus: document.getElementById('don-campus').value, status: document.getElementById('don-status').value, type: document.getElementById('don-type').value, amount: parseFloat(document.getElementById('don-amount').value), date: document.getElementById('don-date').value, filename: filename, fileData: fileData, timestamp: Date.now() };
+            const fResult = await processFiles('don', editId);
+            const recordId = editId || fResult.recordId || Date.now().toString();
+            const record = { id: recordId, staffId: document.getElementById('don-id').value, name: document.getElementById('don-name').value, campus: document.getElementById('don-campus').value, status: document.getElementById('don-status').value, type: document.getElementById('don-type').value, amount: parseFloat(document.getElementById('don-amount').value), date: document.getElementById('don-date').value, filenames: fResult.filenames, fileCount: fResult.fileCount, timestamp: Date.now() };
             if (editId) { const idx = db.donations.findIndex(r => r.id === editId); db.donations[idx] = record; showNotification('Record updated.'); } 
             else { db.donations.push(record); showNotification('Record saved.'); }
             saveDb(); document.getElementById('donation-form').reset(); document.getElementById('don-edit-id').value = ''; document.getElementById('don-file-label').innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Click here to Upload PDF'; document.getElementById('don-campus').value = ''; document.getElementById('don-form-title').innerText = 'Add Donation Record'; document.getElementById('don-submit-btn').innerHTML = '<i class="fa-solid fa-save"></i> Save Record'; document.getElementById('don-cancel-btn').style.display = 'none';
@@ -1181,13 +1325,13 @@
             if(f.search) data = data.filter(r => r.staffId.toLowerCase().includes(f.search)||r.name.toLowerCase().includes(f.search));
             if(f.campus) data = data.filter(r => r.campus === f.campus);
             if(f.type) data = data.filter(r => r.type === f.type);
-            document.getElementById('donation-table-body').innerHTML = data.map(d => `<tr><td><strong>${d.staffId}</strong></td><td>${d.name}</td><td><span class="badge badge-cyan">${d.campus||'-'}</span></td><td><span class="badge badge-gray">${d.type}</span></td><td style="color:var(--success);font-weight:bold;">$${parseFloat(d.amount).toFixed(2)}</td><td>${d.date}</td><td>${d.fileData?`<i class="fa-solid fa-file-pdf" style="color:var(--danger);font-size:1.2rem;"></i>`:'-'}</td><td><div class="action-btns"><button class="btn btn-primary btn-sm" onclick="editRecord('donations','${d.id}','don')"><i class="fa-solid fa-pen-to-square"></i></button><button class="btn btn-gray btn-sm" onclick="openPdfViewer('donations','${d.id}')"><i class="fa-solid fa-eye"></i></button><button class="btn btn-danger btn-sm" onclick="deleteRecord('donations','${d.id}')"><i class="fa-solid fa-trash"></i></button></div></td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;padding:20px;">No records found.</td></tr>';
+            document.getElementById('donation-table-body').innerHTML = data.map(d => `<tr><td><strong>${d.staffId}</strong></td><td>${d.name}</td><td><span class="badge badge-cyan">${d.campus||'-'}</span></td><td><span class="badge badge-gray">${d.type}</span></td><td style="color:var(--success);font-weight:bold;">$${parseFloat(d.amount).toFixed(2)}</td><td>${d.date}</td><td>${d.fileCount ? `<i class="fa-solid fa-file-pdf" style="color:var(--danger);font-size:1.2rem;"></i> ${d.fileCount} file(s)` : '-'}</td><td><div class="action-btns"><button class="btn btn-primary btn-sm" onclick="editRecord('donations','${d.id}','don')"><i class="fa-solid fa-pen-to-square"></i></button><button class="btn btn-gray btn-sm" onclick="openPdfViewer('donations','${d.id}')"><i class="fa-solid fa-eye"></i></button><button class="btn btn-danger btn-sm" onclick="deleteRecord('donations','${d.id}')"><i class="fa-solid fa-trash"></i></button></div></td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;padding:20px;">No records found.</td></tr>';
         }
 
         function deleteRecord(collection, id) {
             if(confirm('Are you sure you want to delete this record?')) {
-                const record = db[collection].find(r => r.id === id);
                 db[collection] = db[collection].filter(item => item.id !== id);
+                deleteRecordFiles(id).catch(() => {});
                 saveDb(); showNotification('Record deleted.');
             }
         }
@@ -1196,6 +1340,12 @@
             const record = db[collection].find(r => r.id === id);
             if(!record) return;
             document.getElementById(`${prefix}-edit-id`).value = record.id;
+            const fileLabel = document.getElementById(`${prefix}-file-label`);
+            if (record.fileCount && record.filenames) {
+                fileLabel.innerHTML = `<i class="fa-solid fa-check"></i> ${record.fileCount} file(s): ${record.filenames.join(', ')}`;
+            } else if (record.filename && record.filename !== 'No file') {
+                fileLabel.innerHTML = `<i class="fa-solid fa-check"></i> 1 file(s): ${record.filename}`;
+            }
             if(prefix === 'res') {
                 document.getElementById('res-id').value = record.staffId; document.getElementById('res-name').value = record.name;
                 document.getElementById('res-nationality').value = record.nationality||''; document.getElementById('res-campus').value = record.campus||'CEN';
@@ -1259,7 +1409,7 @@
             reader.onload = function(e) {
                 try { 
                     const importedDb = JSON.parse(e.target.result); 
-                    if(importedDb.resignations) { db = importedDb; saveDb(); showNotification('Database restored from JSON.'); fileInput.value = ""; } 
+                    if(importedDb.resignations) { db = importedDb; saveDb(); migrateFileData(); showNotification('Database restored from JSON.'); fileInput.value = ""; } 
                     else showNotification('Invalid JSON format.','error'); 
                 } catch(err) { showNotification('Error parsing JSON file.','error'); }
             }; reader.readAsText(fileInput.files[0]);
