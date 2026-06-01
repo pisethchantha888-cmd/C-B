@@ -746,6 +746,7 @@
         </div>
     </div>
 
+    <script src="employees.js"></script>
     <script>
         function getTheme() { try { return localStorage.getItem('cb_theme') || 'day'; } catch(e) { return 'day'; } }
         function setTheme(theme) {
@@ -816,7 +817,6 @@
         }
 
         const MASTER_LIST_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTO68GX9WFErMXR7GxUbaAybv0Vu-Cuia482ACsE8LDVOy_g_fAmvuEG7Y6WTSAII_PG521XZoBgBM_/pub?output=csv&gid=1500996284';
-        const EMPLOYEES_JSON = 'employees.json';
         let masterEmployeeData = [];
         let masterListLoaded = false;
 
@@ -850,15 +850,12 @@
 
         async function fetchMasterList() {
             if (masterListLoaded) return;
-            try {
-                const resp = await fetch(EMPLOYEES_JSON);
-                if (resp.ok) {
-                    masterEmployeeData = await resp.json();
-                    masterListLoaded = true;
-                    console.log(`Loaded ${masterEmployeeData.length} employees from employees.json`);
-                    return;
-                }
-            } catch (e) { console.warn('Local JSON not available, trying Google Sheets...', e); }
+            if (window.EMPLOYEES_DATA && Array.isArray(window.EMPLOYEES_DATA)) {
+                masterEmployeeData = window.EMPLOYEES_DATA;
+                masterListLoaded = true;
+                console.log(`Loaded ${masterEmployeeData.length} employees from inline script`);
+                return;
+            }
             try {
                 const resp = await fetch(MASTER_LIST_CSV);
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
