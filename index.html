@@ -457,7 +457,7 @@
                         <form id="resignation-form" onsubmit="handleResignationSubmit(event)">
                             <input type="hidden" id="res-edit-id">
                             <div class="form-grid">
-                                <div class="form-group"><label>Staff ID <button type="button" class="btn btn-primary btn-sm" id="res-lookup-btn" onclick="doStaffLookup()" style="padding:2px 10px;font-size:0.75rem;border-radius:8px;margin-left:8px;"><i class="fa-solid fa-magnifying-glass"></i> Lookup</button></label><div style="display:flex;gap:6px;"><input type="text" id="res-id" class="form-control" style="flex:1;" required placeholder="Type Staff ID then Tab/Enter or click Lookup"><span id="res-lookup-spinner" style="display:none;align-self:center;"><i class="fa-solid fa-spinner fa-spin" style="color:var(--accent-primary);"></i></span></div></div>
+                                <div class="form-group"><label>Staff ID <button type="button" class="btn btn-primary btn-sm" id="res-lookup-btn" onclick="doStaffLookup('res')" style="padding:2px 10px;font-size:0.75rem;border-radius:8px;margin-left:8px;"><i class="fa-solid fa-magnifying-glass"></i> Lookup</button></label><div style="display:flex;gap:6px;"><input type="text" id="res-id" class="form-control" style="flex:1;" required placeholder="Type Staff ID then Tab/Enter or click Lookup"><span id="res-lookup-spinner" style="display:none;align-self:center;"><i class="fa-solid fa-spinner fa-spin" style="color:var(--accent-primary);"></i></span></div></div>
                                 <div class="form-group"><label>Staff Name</label><input type="text" id="res-name" class="form-control" required></div>
                                 <div class="form-group"><label>Position</label><input type="text" id="res-position" class="form-control" required></div>
                                 <div class="form-group"><label>Nationality</label><input type="text" id="res-nationality" class="form-control" required placeholder="e.g., Cambodian"></div>
@@ -590,7 +590,7 @@
                         <form id="donation-form" onsubmit="handleDonationSubmit(event)">
                             <input type="hidden" id="don-edit-id">
                             <div class="form-grid">
-                                <div class="form-group"><label>Staff ID</label><input type="text" id="don-id" class="form-control" required></div>
+                                <div class="form-group"><label>Staff ID <button type="button" class="btn btn-primary btn-sm" onclick="doStaffLookup('don')" style="padding:2px 10px;font-size:0.75rem;border-radius:8px;margin-left:8px;"><i class="fa-solid fa-magnifying-glass"></i> Lookup</button></label><div style="display:flex;gap:6px;"><input type="text" id="don-id" class="form-control" style="flex:1;" required placeholder="Type Staff ID then Tab/Enter or click Lookup"><span id="don-lookup-spinner" style="display:none;align-self:center;"><i class="fa-solid fa-spinner fa-spin" style="color:var(--accent-primary);"></i></span></div></div>
                                 <div class="form-group"><label>Staff Name</label><input type="text" id="don-name" class="form-control" required></div>
                                 <div class="form-group"><label>Campus</label><select id="don-campus" class="form-control" required><option value="" disabled selected>Select Campus</option><option value="BCH">BCH</option><option value="BKK">BKK</option><option value="BTB1">BTB1</option><option value="BTB2">BTB2</option><option value="BTB3">BTB3</option><option value="CAR">CAR</option><option value="CEN">CEN</option><option value="CKD1">CKD1</option><option value="CKD2">CKD2</option><option value="DNG">DNG</option><option value="SHV">SHV</option><option value="SSK">SSK</option><option value="SOW">SOW</option><option value="STD">STD</option><option value="TSK">TSK</option><option value="VSB">VSB</option></select></div>
                                 <div class="form-group"><label>Status</label><select id="don-status" class="form-control" required><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Semi-full-time">Semi-full-time</option><option value="Temporary">Temporary</option></select></div>
@@ -903,36 +903,42 @@
             console.log(`Parsed ${masterEmployeeData.length} employees from CSV`);
         }
 
-        function doStaffLookup() {
-            const input = document.getElementById('res-id');
-            const spinner = document.getElementById('res-lookup-spinner');
+        function doStaffLookup(prefix = 'res') {
+            const input = document.getElementById(`${prefix}-id`);
+            const spinner = document.getElementById(`${prefix}-lookup-spinner`);
             if (!input.value.trim()) { showNotification('Please enter a Staff ID first.', 'error'); input.focus(); return; }
             if (!masterListLoaded) { showNotification('Master List still loading...', 'error'); return; }
             spinner.style.display = 'flex';
             setTimeout(() => {
-                const found = autoFillFromMaster(input.value.trim());
+                const found = autoFillFromMaster(input.value.trim(), prefix);
                 spinner.style.display = 'none';
                 if (!found) input.focus();
             }, 100);
         }
 
-        function autoFillFromMaster(staffId) {
+        function autoFillFromMaster(staffId, prefix = 'res') {
             if (!masterListLoaded) { showNotification('Master List still loading. Please wait...', 'error'); return false; }
             const emp = masterEmployeeData.find(e => e.staffId === staffId);
             if (!emp) { showNotification(`Staff ID "${staffId}" not found in Master List.`, 'error'); return false; }
-            document.getElementById('res-name').value = emp.name;
-            document.getElementById('res-position').value = emp.position;
-            document.getElementById('res-nationality').value = emp.nationality;
-            const campusSel = document.getElementById('res-campus');
+            document.getElementById(`${prefix}-name`).value = emp.name;
+            if (prefix === 'res') {
+                document.getElementById('res-position').value = emp.position;
+                document.getElementById('res-nationality').value = emp.nationality;
+            }
+            const campusSel = document.getElementById(`${prefix}-campus`);
             if (emp.campus && [...campusSel.options].some(o => o.value === emp.campus)) campusSel.value = emp.campus;
-            const deptSel = document.getElementById('res-department');
-            if (emp.department && [...deptSel.options].some(o => o.value === emp.department)) deptSel.value = emp.department;
+            if (prefix === 'res') {
+                const deptSel = document.getElementById('res-department');
+                if (emp.department && [...deptSel.options].some(o => o.value === emp.department)) deptSel.value = emp.department;
+            }
             const statusMap = { 'Full-Time':'Full-time', 'Part-Time':'Part-time', 'Semi-Full Time':'Semi-full-time' };
             const mappedStatus = statusMap[emp.status] || emp.status;
-            const statusSel = document.getElementById('res-status');
+            const statusSel = document.getElementById(`${prefix}-status`);
             if (mappedStatus && [...statusSel.options].some(o => o.value === mappedStatus)) statusSel.value = mappedStatus;
-            if (emp.startDate) document.getElementById('res-start').value = formatMasterDate(emp.startDate);
-            if (emp.lastWorkingDay) document.getElementById('res-end').value = formatMasterDate(emp.lastWorkingDay);
+            if (prefix === 'res') {
+                if (emp.startDate) document.getElementById('res-start').value = formatMasterDate(emp.startDate);
+                if (emp.lastWorkingDay) document.getElementById('res-end').value = formatMasterDate(emp.lastWorkingDay);
+            }
             showNotification(`Auto-filled: ${emp.name}`, 'success');
             return true;
         }
@@ -952,9 +958,16 @@
                 setTimeout(() => {
                     const idInput = document.getElementById('res-id');
                     if (idInput) {
-                        idInput.addEventListener('blur', function() { if (this.value.trim()) doStaffLookup(); });
+                        idInput.addEventListener('blur', function() { if (this.value.trim()) doStaffLookup('res'); });
                         idInput.addEventListener('keydown', function(e) {
-                            if (e.key === 'Enter') { e.preventDefault(); doStaffLookup(); }
+                            if (e.key === 'Enter') { e.preventDefault(); doStaffLookup('res'); }
+                        });
+                    }
+                    const donIdInput = document.getElementById('don-id');
+                    if (donIdInput) {
+                        donIdInput.addEventListener('blur', function() { if (this.value.trim()) doStaffLookup('don'); });
+                        donIdInput.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter') { e.preventDefault(); doStaffLookup('don'); }
                         });
                     }
                 }, 300);
